@@ -148,6 +148,13 @@ typedef struct
     }
  #endif
 
+std::string truncate_filename(const std::string& filename, size_t max_len = 20) {
+    if (filename.length() <= max_len) {
+        return filename;
+    }
+    return filename.substr(0, max_len - 3) + "...";
+}
+
 bool FileExist(string fileName)
 {
     FILE *file = fopen(fileName.c_str(), "r");
@@ -301,13 +308,15 @@ bool CopyLocalFile(string from, string to)
 
 static bool CopyPath(string from, string todir)
 {
+    std::string display_name_from = truncate_filename(from, 25);
+    std::string display_name_todir = truncate_filename(todir, 25);
     if (!DirectoryExists(from))
     {
         if (FileExist(from))
             return CopyLocalFile(from, todir);
         else
         {
-            (new ShakeWindow())->MessageBox(from + " not found");
+            (new ShakeWindow())->MessageBox("\n错误\n\n以下文件未找到            \n" + display_name_from + "\n");
             return false;
         }
     }
@@ -318,7 +327,7 @@ static bool CopyPath(string from, string todir)
     tinydir_dir dir;
 	if (tinydir_open(&dir, from.c_str()) == -1)
 	{
-		(new ShakeWindow())->MessageBox("Can't open directory " + from);
+		(new ShakeWindow())->MessageBox("\n错误\n\n无法打开以下目录               \n " + display_name_todir + "\n");
 		tinydir_close(&dir);
 		return false;
 	}
@@ -328,9 +337,10 @@ static bool CopyPath(string from, string todir)
 	while (dir.has_next)
 	{
 		tinydir_file file;
+        std::string display_name = truncate_filename(file.name, 20);
 		if (tinydir_readfile(&dir, &file) == -1)
 		{
-		    (new ShakeWindow())->MessageBox(string("Can't open file ") + file.name);
+		    (new ShakeWindow())->MessageBox(string("\n错误\n\n无法打开以下文件             \n") + display_name + string("\n"));
 			continue;
 		}
 
