@@ -8,7 +8,7 @@
 #include "FSModel.h"
 #include "timer.h"
 
-#define KE_VERSION "1.5"
+#define KE_VERSION "2.0"
 #define EDITOR "/mnt/us/extensions/leafpad/bin/leafpad"
 #define TERMINAL "/mnt/us/extensions/kterm/bin/kterm"
 
@@ -20,6 +20,7 @@ FilesModel *fs;
 Timer timer; string lastSel;
 string copied;
 const char* imageFormats = "bmp;png;gif;ico;jpg;jpeg;wmf;tga";
+
 
 void UpdateButtons()
 {
@@ -63,7 +64,7 @@ void EditFile(GtkWidget *widget, gpointer data)
 
     if (!FileExist(EDITOR))
     {
-        win->MessageBox(string("Can't find editor: ") + EDITOR);
+        win->MessageBox(string("找不到编辑器：LeafPad"));
         return;
     }
 
@@ -74,7 +75,7 @@ void RunTerminal(GtkWidget *widget, gpointer data)
 {
     if (!FileExist(TERMINAL))
     {
-        win->MessageBox(string("Can't find terminal: ") + TERMINAL);
+        win->MessageBox(string("找不到终端应用：Kterm"));
         return;
     }
 
@@ -88,7 +89,7 @@ void RenameFile(GtkWidget *widget, gpointer data)
     FileItem sel = fs->GetSelectedItem();
 
     OpenKeyboard();
-    InputDialogBox* input = new InputDialogBox(win, "Enter new name:", "", sel.name);
+    InputDialogBox* input = new InputDialogBox(win, "\n  重命名\n\n  请输入新名称：                                           ", "", sel.name);
     if (input->ShowDialog() == GTK_RESPONSE_OK)
     {
         string to = GetFullLocalFilePath(input->GetValue());
@@ -104,10 +105,12 @@ void DeleteFile(GtkWidget *widget, gpointer data)
     if (!fs->IsItemSelected())
         return;
     FileItem sel = fs->GetSelectedItem();
+    
+    std::string display_name = truncate_filename(sel.name, 25);
 
-    string msg = string("Remove \"") + sel.name + "\"?";
+    string msg = string("\n  删除\n\n  确定要删除以下文件吗？\n                                                             \n   \"") + display_name + "\"\n";
     if (sel.dir)
-        msg = "Do you really want to remove \"" + sel.name + "\" and all its subdirectories?";
+        msg = "\n  删除\n\n  确定要删除以下目录及其内部所有文件吗？\n                                                                        \n   \"" + display_name + "\" \n";
 
     gint res = win->MessageBox(msg, GTK_BUTTONS_YES_NO);
     if (res == GTK_RESPONSE_YES)
@@ -140,7 +143,9 @@ void PasteFile(GtkWidget *widget, gpointer data)
         to += "_copy";
     else if (to.find(copied) != string::npos)
     {
-        win->MessageBox("You can't copy " + copied + " to " + to + ". This is recursion! :(");
+        std::string display_name_copied = truncate_filename(copied, 25);
+        std::string display_name_to = truncate_filename(copied, 25);
+        win->MessageBox("\n错误\n\n无法复制文件！                                 \n " + display_name_copied + "\n 到 \n" + display_name_to + "\n\n目标与源文件冲突了！");
         return;
     }
 
@@ -205,12 +210,12 @@ void ShowAbout(GtkWidget *widget, gpointer data)
   GtkWidget *dialog = gtk_about_dialog_new();
   gtk_about_dialog_set_name(GTK_ABOUT_DIALOG(dialog), "KindleExplorer");
   gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(dialog), KE_VERSION);
-  gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(dialog), "Developer: anakod");
-  gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dialog), "Fast and simple file explorer.\n\nhttp://66bit.ru");
+  gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(dialog), "Developer: anakod&TQHYG");
+  gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dialog), "快速的文件管理器");
   //gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dialog), "");
   gtk_about_dialog_set_logo(GTK_ABOUT_DIALOG(dialog), pixbuf);
   g_object_unref(pixbuf), pixbuf = NULL;
-  gtk_window_set_title(GTK_WINDOW(dialog), "L:A_N:Explorer:About");
+  gtk_window_set_title(GTK_WINDOW(dialog), "L:D_N:dialog_ID:net.tqhyg.explorer.About");
   gtk_window_set_position (GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
   gtk_dialog_run(GTK_DIALOG (dialog));
   gtk_widget_destroy(dialog);
@@ -249,7 +254,7 @@ void AdaptSize()
 {
     gint screenWidth = gdk_screen_get_width(gdk_screen_get_default());
     gint size = screenWidth / 12;
-    if (size < 62) // for small screens downsize buttons
+    if (size < 1000) // for small screens downsize buttons
     {
         vector<GtkWidget*> buttons = win->FindWidgetsByType("GtkButton");
         for(vector<GtkWidget*>::iterator it = buttons.begin(); it != buttons.end(); it++)
@@ -260,7 +265,7 @@ void AdaptSize()
 int main (int argc, char **argv)
 {
     ShakeWindow::Initialize();
-    ShakeWindow::SetDefaultTitle("L:A_N:application_FileExplorer:Window");
+    ShakeWindow::SetDefaultTitle("L:A_N:application_PC:T_ID:net.tqhyg.explorer");
     win = new ShakeWindow();
     win->Load(GetResFile("MainWindow.glade"), true);
     win->SetCloseButton("btnClose");

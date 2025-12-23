@@ -86,7 +86,7 @@ public:
         GtkWidget *dialog = NULL;
 
         dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, buttons, text.c_str(), "");
-        gtk_window_set_title(GTK_WINDOW(dialog), "L:A_N:msgbox:show");
+        gtk_window_set_title(GTK_WINDOW(dialog), "L:D_N:dialog_PC:T_ID:net.tqhyg.explorer.dialog");
         gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
         result = gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
@@ -272,7 +272,7 @@ public:
     InputDialogBox(ShakeWindow* parent, string question, string title = "", string value = "")
     {
         if (title.length() == 0)
-            title = "L:A_N:Dialog:Input";
+            title = "L:D_N:dialog_ID:net.tqhyg.explorer.input";
 
         window = gtk_dialog_new_with_buttons(title.c_str(), GTK_WINDOW(parent->Handle()), GTK_DIALOG_MODAL, NULL);
         btnCancel = gtk_dialog_add_button((GtkDialog*)window, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
@@ -314,7 +314,7 @@ public:
     WaitWindow(ShakeWindow* parent, string msg = "Please, wait...", string title = "")
     {
         if (title.length() == 0)
-            title = "L:A_N:Dialog:Wait";
+            title = "L:D_N:dialog_ID:net.tqhyg.explorer.wait";
 
         Create(title);
         SetModal(parent);
