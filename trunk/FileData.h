@@ -316,7 +316,7 @@ static bool CopyPath(string from, string todir)
             return CopyLocalFile(from, todir);
         else
         {
-            (new ShakeWindow())->MessageBox("\n错误\n\n以下文件未找到            \n" + display_name_from + "\n");
+            (new ShakeWindow())->MessageBox("\n  错误\n\n  以下文件未找到            \n  " + display_name_from + "  \n");
             return false;
         }
     }
@@ -327,7 +327,7 @@ static bool CopyPath(string from, string todir)
     tinydir_dir dir;
 	if (tinydir_open(&dir, from.c_str()) == -1)
 	{
-		(new ShakeWindow())->MessageBox("\n错误\n\n无法打开以下目录               \n " + display_name_todir + "\n");
+		(new ShakeWindow())->MessageBox("\n  错误\n\n  无法打开以下目录               \n  " + display_name_todir + "  \n");
 		tinydir_close(&dir);
 		return false;
 	}
@@ -340,7 +340,7 @@ static bool CopyPath(string from, string todir)
         std::string display_name = truncate_filename(file.name, 20);
 		if (tinydir_readfile(&dir, &file) == -1)
 		{
-		    (new ShakeWindow())->MessageBox(string("\n错误\n\n无法打开以下文件             \n") + display_name + string("\n"));
+		    (new ShakeWindow())->MessageBox(string("\n  错误\n\n  无法打开以下文件             \n  ") + display_name + string("  \n"));
 			continue;
 		}
 

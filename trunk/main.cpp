@@ -108,9 +108,9 @@ void DeleteFile(GtkWidget *widget, gpointer data)
     
     std::string display_name = truncate_filename(sel.name, 25);
 
-    string msg = string("\n  删除\n\n  确定要删除以下文件吗？\n                                                             \n   \"") + display_name + "\"\n";
+    string msg = string("\n  删除\n\n  确定要删除以下文件吗？\n                                                             \n   \"") + display_name + "\"    \n";
     if (sel.dir)
-        msg = "\n  删除\n\n  确定要删除以下目录及其内部所有文件吗？\n                                                                        \n   \"" + display_name + "\" \n";
+        msg = "\n  删除\n\n  确定要删除以下目录及其内部所有文件吗？\n                                                                        \n   \"" + display_name + "\"    \n";
 
     gint res = win->MessageBox(msg, GTK_BUTTONS_YES_NO);
     if (res == GTK_RESPONSE_YES)
@@ -145,7 +145,7 @@ void PasteFile(GtkWidget *widget, gpointer data)
     {
         std::string display_name_copied = truncate_filename(copied, 25);
         std::string display_name_to = truncate_filename(copied, 25);
-        win->MessageBox("\n错误\n\n无法复制文件！                                 \n " + display_name_copied + "\n 到 \n" + display_name_to + "\n\n目标与源文件冲突了！");
+        win->MessageBox("\n  错误\n\n  无法复制文件！                                 \n " + display_name_copied + "\n 到 \n" + display_name_to + "\n\n  目标与源文件冲突了！");
         return;
     }
 
