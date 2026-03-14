@@ -15,6 +15,11 @@ typedef struct
 {
     string name;
     bool dir;
+    bool is_symlink;
+    bool symlink_broken;
+    mode_t mode;     /* from lstat: used for permissions display */
+    off_t size;      /* file size; for symlinks: target size; broken: 0 */
+    int dir_count;   /* for directories: item count (-1 if unavailable) */
 } FileItem;
 
 #include <stdio.h>  /* defines FILENAME_MAX */
@@ -203,6 +208,54 @@ std::string GetResFile(string file)
 
 bool sorter(FileItem i, FileItem j) { if (i.dir != j.dir) return i.dir > j.dir; else return i.name < j.name; }
 
+static string format_perms(mode_t mode)
+{
+    char p[11];
+    if      (S_ISLNK(mode))  p[0] = 'l';
+    else if (S_ISDIR(mode))  p[0] = 'd';
+    else if (S_ISREG(mode))  p[0] = '-';
+    else                     p[0] = '?';
+    p[1] = (mode & S_IRUSR) ? 'r' : '-';
+    p[2] = (mode & S_IWUSR) ? 'w' : '-';
+    p[3] = (mode & S_IXUSR) ? 'x' : '-';
+    p[4] = (mode & S_IRGRP) ? 'r' : '-';
+    p[5] = (mode & S_IWGRP) ? 'w' : '-';
+    p[6] = (mode & S_IXGRP) ? 'x' : '-';
+    p[7] = (mode & S_IROTH) ? 'r' : '-';
+    p[8] = (mode & S_IWOTH) ? 'w' : '-';
+    p[9] = (mode & S_IXOTH) ? 'x' : '-';
+    p[10] = '\0';
+    return string(p);
+}
+
+static string format_size_auto(off_t size)
+{
+    char buf[32];
+    if      (size < 1024LL)              snprintf(buf, sizeof(buf), "%lldB",  (long long)size);
+    else if (size < 1024LL * 1024)       snprintf(buf, sizeof(buf), "%.2fK",  size / 1024.0);
+    else if (size < 1024LL * 1024*1024)  snprintf(buf, sizeof(buf), "%.2fM",  size / (1024.0*1024));
+    else                                 snprintf(buf, sizeof(buf), "%.2fG",  size / (1024.0*1024*1024));
+    return string(buf);
+}
+
+static int count_dir_items(const char* dirpath)
+{
+    DIR *d = opendir(dirpath);
+    if (!d) return -1;
+    int count = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL)
+    {
+        if (strcmp(e->d_name, ".") != 0 && strcmp(e->d_name, "..") != 0)
+        {
+            count++;
+            if (count >= 9999) { count = 9999; break; } /* safety cap */
+        }
+    }
+    closedir(d);
+    return count;
+}
+
 static vector<FileItem> GetFiles()
 {
     vector<FileItem> result;
@@ -221,12 +274,41 @@ static vector<FileItem> GetFiles()
 		if (tinydir_readfile(&dir, &file) == -1)
 		{
 			perror("Error getting file");
+			tinydir_next(&dir);
 			continue;
 		}
 
         FileItem fit;
-        fit.name = file.name;
-        fit.dir = file.is_dir;
+        fit.name        = file.name;
+        fit.dir         = file.is_dir;
+        fit.is_symlink  = file.is_symlink;
+        fit.mode        = file._s.st_mode;
+        fit.symlink_broken = false;
+        fit.size        = 0;
+        fit.dir_count   = -1;
+
+        if (fit.is_symlink)
+        {
+            struct stat tgt;
+            if (stat(file.path, &tgt) == 0)
+            {
+                fit.size = tgt.st_size;
+                if (fit.dir)
+                    fit.dir_count = count_dir_items(file.path);
+            }
+            else
+            {
+                fit.symlink_broken = true;
+            }
+        }
+        else if (fit.dir)
+        {
+            fit.dir_count = count_dir_items(file.path);
+        }
+        else
+        {
+            fit.size = file._s.st_size;
+        }
 
 		if (fit.name != "." && fit.name != "..")
             result.push_back(fit);
@@ -260,6 +342,7 @@ static bool RemovePath(string path)
 		if (tinydir_readfile(&dir, &file) == -1)
 		{
 			perror("Error getting file");
+			tinydir_next(&dir);
 			continue;
 		}
 
@@ -341,6 +424,7 @@ static bool CopyPath(string from, string todir)
 		if (tinydir_readfile(&dir, &file) == -1)
 		{
 		    (new ShakeWindow())->MessageBox(string("\n  错误\n\n  无法打开以下文件             \n  ") + display_name + string("  \n"));
+			tinydir_next(&dir);
 			continue;
 		}
 

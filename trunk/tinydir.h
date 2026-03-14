@@ -34,6 +34,7 @@ typedef struct
 	char name[_TINYDIR_FILENAME_MAX];
 	int is_dir;
 	int is_reg;
+	int is_symlink; /* 1 if entry is a symbolic link */
 
 #ifdef WINDOWS
 #else
@@ -285,7 +286,7 @@ int tinydir_readfile(const tinydir_dir *dir, tinydir_file *file)
 	);
 	strcat(file->path, file->name);
 #ifndef WINDOWS
-	if (stat(file->path, &file->_s) == -1)
+	if (lstat(file->path, &file->_s) == -1)
 	{
 		return -1;
 	}
@@ -301,6 +302,27 @@ int tinydir_readfile(const tinydir_dir *dir, tinydir_file *file)
 		!!(dir->_f.dwFileAttributes & FILE_ATTRIBUTE_NORMAL);
 #else
 		S_ISREG(file->_s.st_mode);
+#endif
+#ifdef WINDOWS
+	file->is_symlink = 0;
+#else
+	/* For symlinks: lstat gave us the link itself; follow it to determine
+	   whether the target is a directory or regular file. */
+	file->is_symlink = S_ISLNK(file->_s.st_mode);
+	if (file->is_symlink)
+	{
+		struct stat _tgt;
+		if (stat(file->path, &_tgt) == 0)
+		{
+			file->is_dir = S_ISDIR(_tgt.st_mode);
+			file->is_reg = S_ISREG(_tgt.st_mode);
+		}
+		else
+		{
+			file->is_dir = 0;
+			file->is_reg = 0;
+		}
+	}
 #endif
 
 	return 0;

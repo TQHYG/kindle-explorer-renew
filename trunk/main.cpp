@@ -15,7 +15,7 @@
 using namespace std;
 
 ShakeWindow *win;
-GtkWidget *lstFiles, *txtPath;
+GtkWidget *lstFiles, *hboxBreadcrumb;
 FilesModel *fs;
 Timer timer; string lastSel;
 string copied;
@@ -250,6 +250,35 @@ gboolean ListCkicked(GtkWidget *widget, GdkEventButton *event, gpointer data)
     return TRUE;
 }
 
+void ScrollPageUp(GtkWidget *widget, gpointer data)
+{
+    GtkWidget *sw = win->GetWidget("scrolledwindow1");
+    GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(sw));
+    gdouble new_value = vadj->value - vadj->page_size;
+    if (new_value < vadj->lower) new_value = vadj->lower;
+    gtk_adjustment_set_value(vadj, new_value);
+}
+
+void ScrollPageDown(GtkWidget *widget, gpointer data)
+{
+    GtkWidget *sw = win->GetWidget("scrolledwindow1");
+    GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(sw));
+    gdouble new_value = vadj->value + vadj->page_size;
+    gdouble max_value = vadj->upper - vadj->page_size;
+    if (new_value > max_value) new_value = max_value;
+    gtk_adjustment_set_value(vadj, new_value);
+}
+
+void BreadcrumbClick(GtkWidget *btn, gpointer data)
+{
+    const char *target = (const char*)g_object_get_data(G_OBJECT(btn), "nav_path");
+    if (target)
+    {
+        chdir(target);
+        fs->UpdateList();
+    }
+}
+
 void AdaptSize()
 {
     gint screenWidth = gdk_screen_get_width(gdk_screen_get_default());
@@ -265,14 +294,17 @@ void AdaptSize()
 int main (int argc, char **argv)
 {
     ShakeWindow::Initialize();
+    gtk_rc_parse_string(
+        "style \"kindle-scrollbar\" {\n"
+        "  GtkScrollbar::slider-width = 40\n"
+        "  GtkScrollbar::min-slider-length = 50\n"
+        "}\n"
+        "class \"GtkVScrollbar\" style \"kindle-scrollbar\"\n"
+    );
     ShakeWindow::SetDefaultTitle("L:A_N:application_PC:T_ID:net.tqhyg.explorer");
     win = new ShakeWindow();
     win->Load(GetResFile("MainWindow.glade"), true);
     win->SetCloseButton("btnClose");
-    lstFiles = win->GetWidget("lstFiles");
-    txtPath = win->GetWidget("txtPath");
-    fs = new FilesModel();
-    fs->Assign(lstFiles, txtPath);
 
     win->OnClick("btnDirUp", DirUp);
     win->OnClick("btnView", ViewFile);
@@ -299,6 +331,34 @@ int main (int argc, char **argv)
     win->ApplyImage("btnClose", GetResFile("close.png"));
 
     AdaptSize();
+
+    /* Initialize file list model AFTER AdaptSize so dynamically-created
+       breadcrumb buttons are not caught by AdaptSize's button resize sweep */
+    lstFiles = win->GetWidget("lstFiles");
+    hboxBreadcrumb = win->GetWidget("hboxBreadcrumb");
+    fs = new FilesModel();
+    fs->Assign(lstFiles, hboxBreadcrumb, G_CALLBACK(BreadcrumbClick));
+
+    // Wire custom vscrollbar to the scrolled window's vadjustment
+    GtkWidget *scrolledWindow = win->GetWidget("scrolledwindow1");
+    GtkWidget *vscrollbar = win->GetWidget("vscrollbar1");
+    GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolledWindow));
+    gtk_range_set_adjustment(GTK_RANGE(vscrollbar), vadj);
+    gtk_widget_set_size_request(vscrollbar, 50, -1);
+
+    // Use GTK native arrows for page buttons — renders reliably without font dependency
+    GtkWidget *arrowUp = gtk_arrow_new(GTK_ARROW_UP, GTK_SHADOW_NONE);
+    gtk_widget_set_size_request(arrowUp, 32, 32);
+    gtk_widget_show(arrowUp);
+    gtk_button_set_image(GTK_BUTTON(win->GetWidget("btnPageUp")), arrowUp);
+
+    GtkWidget *arrowDown = gtk_arrow_new(GTK_ARROW_DOWN, GTK_SHADOW_NONE);
+    gtk_widget_set_size_request(arrowDown, 32, 32);
+    gtk_widget_show(arrowDown);
+    gtk_button_set_image(GTK_BUTTON(win->GetWidget("btnPageDown")), arrowDown);
+
+    win->OnClick("btnPageUp", ScrollPageUp);
+    win->OnClick("btnPageDown", ScrollPageDown);
 
     g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(lstFiles)), "changed", G_CALLBACK(on_changed), NULL);
     g_signal_connect(G_OBJECT(lstFiles), "button_release_event", (GtkSignalFunc)ListCkicked, NULL);
