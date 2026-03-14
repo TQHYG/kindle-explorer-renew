@@ -129,7 +129,7 @@ private:
 
         /* Build segment list: (display_name, full_path) */
         vector<pair<string,string> > segments;
-        segments.push_back(make_pair(string("ROOT"), string("/")));
+        segments.push_back(make_pair(string("[ROOT]"), string("/")));
 
         if (path_str != "/")
         {
@@ -230,7 +230,7 @@ private:
             string info;
             if (it->is_symlink && it->symlink_broken)
             {
-                info = "Broken Symlink";
+                info = "Deadlink";
             }
             else if (it->dir)
             {
@@ -240,7 +240,7 @@ private:
                 else if (it->dir_count >= 0)
                     snprintf(buf, sizeof(buf), "%d items", it->dir_count);
                 else
-                    snprintf(buf, sizeof(buf), "—");
+                    snprintf(buf, sizeof(buf), "\xe2\x80\x94"); /* em dash */
                 info = string(buf);
             }
             else
@@ -248,12 +248,21 @@ private:
                 info = format_size_auto(it->size);
             }
 
+            /* Append symlink target arrow for all symlinks */
+            string link_suffix;
+            if (it->is_symlink && !it->symlink_target.empty())
+            {
+                gchar *esc_tgt = g_markup_escape_text(it->symlink_target.c_str(), -1);
+                link_suffix = string("  ->") + esc_tgt;
+                g_free(esc_tgt);
+            }
+
             /* ---- escape filename for Pango markup ---- */
             gchar *esc = g_markup_escape_text(it->name.c_str(), -1);
             const char *attrs_color = (it->is_symlink && it->symlink_broken) ? "#cc3333" : "#777777";
             string markup = string(esc)
                 + "\n<span size='small' foreground='" + attrs_color + "'>"
-                + perms + "  " + info + "</span>";
+                + perms + "  " + info + link_suffix + "</span>";
             g_free(esc);
 
             gtk_list_store_append(store, &iter);

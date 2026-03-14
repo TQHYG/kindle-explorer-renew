@@ -347,15 +347,27 @@ int main (int argc, char **argv)
     gtk_widget_set_size_request(vscrollbar, 50, -1);
 
     // Use GTK native arrows for page buttons — renders reliably without font dependency
+    GdkColor flat_bg = {0, 0xffff, 0xffff, 0xffff}; /* white */
+
+    GtkWidget *btnPageUp = win->GetWidget("btnPageUp");
     GtkWidget *arrowUp = gtk_arrow_new(GTK_ARROW_UP, GTK_SHADOW_NONE);
     gtk_widget_set_size_request(arrowUp, 32, 32);
     gtk_widget_show(arrowUp);
-    gtk_button_set_image(GTK_BUTTON(win->GetWidget("btnPageUp")), arrowUp);
+    gtk_button_set_image(GTK_BUTTON(btnPageUp), arrowUp);
+    gtk_button_set_relief(GTK_BUTTON(btnPageUp), GTK_RELIEF_NONE);
+    gtk_widget_modify_bg(btnPageUp, GTK_STATE_NORMAL,   &flat_bg);
+    gtk_widget_modify_bg(btnPageUp, GTK_STATE_PRELIGHT, &flat_bg);
+    gtk_widget_modify_bg(btnPageUp, GTK_STATE_ACTIVE,   &flat_bg);
 
+    GtkWidget *btnPageDown = win->GetWidget("btnPageDown");
     GtkWidget *arrowDown = gtk_arrow_new(GTK_ARROW_DOWN, GTK_SHADOW_NONE);
     gtk_widget_set_size_request(arrowDown, 32, 32);
     gtk_widget_show(arrowDown);
-    gtk_button_set_image(GTK_BUTTON(win->GetWidget("btnPageDown")), arrowDown);
+    gtk_button_set_image(GTK_BUTTON(btnPageDown), arrowDown);
+    gtk_button_set_relief(GTK_BUTTON(btnPageDown), GTK_RELIEF_NONE);
+    gtk_widget_modify_bg(btnPageDown, GTK_STATE_NORMAL,   &flat_bg);
+    gtk_widget_modify_bg(btnPageDown, GTK_STATE_PRELIGHT, &flat_bg);
+    gtk_widget_modify_bg(btnPageDown, GTK_STATE_ACTIVE,   &flat_bg);
 
     win->OnClick("btnPageUp", ScrollPageUp);
     win->OnClick("btnPageDown", ScrollPageDown);

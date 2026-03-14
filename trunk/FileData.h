@@ -17,9 +17,10 @@ typedef struct
     bool dir;
     bool is_symlink;
     bool symlink_broken;
-    mode_t mode;     /* from lstat: used for permissions display */
-    off_t size;      /* file size; for symlinks: target size; broken: 0 */
-    int dir_count;   /* for directories: item count (-1 if unavailable) */
+    mode_t mode;            /* from lstat: used for permissions display */
+    off_t size;             /* file size; for symlinks: target size; broken: 0 */
+    int dir_count;          /* for directories: item count (-1 if unavailable) */
+    string symlink_target;  /* readlink() result; empty for non-symlinks */
 } FileItem;
 
 #include <stdio.h>  /* defines FILENAME_MAX */
@@ -289,6 +290,15 @@ static vector<FileItem> GetFiles()
 
         if (fit.is_symlink)
         {
+            /* Read the link target path */
+            char link_buf[2048];
+            ssize_t link_len = readlink(file.path, link_buf, sizeof(link_buf) - 1);
+            if (link_len > 0)
+            {
+                link_buf[link_len] = '\0';
+                fit.symlink_target = string(link_buf);
+            }
+
             struct stat tgt;
             if (stat(file.path, &tgt) == 0)
             {
