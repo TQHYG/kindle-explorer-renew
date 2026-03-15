@@ -12,6 +12,8 @@
 using namespace std;
 
 enum FileType { FT_DIR, FT_IMAGE, FT_SCRIPT, FT_BINARY, FT_EBOOK, FT_TEXT, FT_OTHER };
+enum SortField { SORT_NAME, SORT_SIZE, SORT_TYPE, SORT_MTIME };
+enum SortDir   { SORT_ASC,  SORT_DESC };
 
 typedef struct
 {
@@ -20,7 +22,8 @@ typedef struct
     bool is_symlink;
     bool symlink_broken;
     mode_t mode;            /* from lstat: used for permissions display */
-    off_t size;             /* file size; for symlinks: target size; broken: 0 */
+    off_t  size;            /* file size; for symlinks: target size; broken: 0 */
+    time_t mtime;           /* modification time (target mtime for valid symlinks) */
     int dir_count;          /* for directories: item count (-1 if unavailable) */
     string symlink_target;  /* readlink() result; empty for non-symlinks */
     FileType file_type;     /* detected file type */
@@ -212,6 +215,54 @@ std::string GetResFile(string file)
 
 bool sorter(FileItem i, FileItem j) { if (i.dir != j.dir) return i.dir > j.dir; else return i.name < j.name; }
 
+static string get_extension(const string& name)
+{
+    size_t pos = name.find_last_of('.');
+    if (pos == string::npos || pos == 0) return "";
+    return name.substr(pos + 1);
+}
+
+static bool compare_file_items(const FileItem& a, const FileItem& b,
+                                SortField field, SortDir dir)
+{
+    /* Directories always come before files */
+    if (a.dir != b.dir) return a.dir > b.dir;
+
+    bool asc = (dir == SORT_ASC);
+    switch (field)
+    {
+        case SORT_SIZE:
+            if (a.dir)
+            {
+                /* For size sort, dirs are ordered by name ascending (fixed) */
+                return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
+            }
+            return asc ? (a.size < b.size) : (a.size > b.size);
+
+        case SORT_TYPE:
+        {
+            string ea = get_extension(a.name);
+            string eb = get_extension(b.name);
+            int ecmp  = strcasecmp(ea.c_str(), eb.c_str());
+            if (ecmp != 0)
+                return asc ? (ecmp < 0) : (ecmp > 0);
+            /* Same extension: sort by name with direction */
+            int ncmp = strcasecmp(a.name.c_str(), b.name.c_str());
+            return asc ? (ncmp < 0) : (ncmp > 0);
+        }
+
+        case SORT_MTIME:
+            return asc ? (a.mtime < b.mtime) : (a.mtime > b.mtime);
+
+        case SORT_NAME:
+        default:
+        {
+            int ncmp = strcasecmp(a.name.c_str(), b.name.c_str());
+            return asc ? (ncmp < 0) : (ncmp > 0);
+        }
+    }
+}
+
 static string format_perms(mode_t mode)
 {
     char p[11];
@@ -305,7 +356,7 @@ static FileType detect_file_type(const FileItem& fi)
     return FT_TEXT;
 }
 
-static vector<FileItem> GetFiles()
+static vector<FileItem> GetFiles(SortField sf = SORT_NAME, SortDir sd = SORT_ASC)
 {
     vector<FileItem> result;
 
@@ -334,6 +385,7 @@ static vector<FileItem> GetFiles()
         fit.mode        = file._s.st_mode;
         fit.symlink_broken = false;
         fit.size        = 0;
+        fit.mtime       = file._s.st_mtime;  /* lstat mtime; may be overridden below */
         fit.dir_count   = -1;
 
         if (fit.is_symlink)
@@ -350,7 +402,8 @@ static vector<FileItem> GetFiles()
             struct stat tgt;
             if (stat(file.path, &tgt) == 0)
             {
-                fit.size = tgt.st_size;
+                fit.size  = tgt.st_size;
+                fit.mtime = tgt.st_mtime;
                 if (fit.dir)
                     fit.dir_count = count_dir_items(file.path);
             }
@@ -378,7 +431,10 @@ static vector<FileItem> GetFiles()
 	}
 
     tinydir_close(&dir);
-    std::sort (result.begin(), result.end(), sorter);
+    std::sort(result.begin(), result.end(),
+              [sf, sd](const FileItem& a, const FileItem& b) {
+                  return compare_file_items(a, b, sf, sd);
+              });
     return result;
 }
 

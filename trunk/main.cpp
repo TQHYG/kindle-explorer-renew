@@ -10,6 +10,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <pthread.h>
+#include <sys/statvfs.h>
 
 #include "../KindleLib/ShakeWindow.h"
 #include "FSModel.h"
@@ -31,6 +32,11 @@ static string text_viewer_filename;
 const char* imageFormats = "bmp;png;gif;ico;jpg;jpeg;wmf;tga";
 GdkPixbuf *ms_icon_normal   = NULL;
 GdkPixbuf *ms_icon_inverted = NULL;
+
+/* Sort-bar widget pointers — initialised in main() after win->Show() */
+static GtkWidget *lblFileCount = NULL;
+static GtkWidget *pbDiskUsage  = NULL;
+static GtkWidget *lblDiskUsage = NULL;
 
 /* Return a copy of src with RGB channels inverted; alpha is preserved. */
 static GdkPixbuf* invert_pixbuf(GdkPixbuf *src)
@@ -79,6 +85,81 @@ void UpdateButtons()
     win->Enable("btnProperties", !multiselect_mode && sel);
     win->Enable("btnTerminal",   true);
 }
+
+/* ---- Sort bar helpers --------------------------------------------- */
+
+/* Custom draw for disk usage progress bar: black border, white bg, black fill.
+   Bypasses GTK theme so the appearance is consistent on all Kindle GTK2 themes. */
+static gboolean pb_draw_cb(GtkWidget *widget, GdkEventExpose * /*event*/, gpointer /*data*/)
+{
+    double frac = gtk_progress_bar_get_fraction(GTK_PROGRESS_BAR(widget));
+    gint w = widget->allocation.width;
+    gint h = widget->allocation.height;
+    GdkWindow *gwin = widget->window;
+    if (!gwin) return FALSE;
+
+    /* White background */
+    gdk_draw_rectangle(gwin, widget->style->white_gc, TRUE, 0, 0, w, h);
+
+    /* Black fill for used portion (inset 1px from border) */
+    gint fill_w = (gint)(frac * (w - 2));
+    if (fill_w > 0)
+        gdk_draw_rectangle(gwin, widget->style->black_gc, TRUE, 1, 1, fill_w, h - 2);
+
+    /* Black 1px border */
+    gdk_draw_rectangle(gwin, widget->style->black_gc, FALSE, 0, 0, w - 1, h - 1);
+
+    return TRUE; /* stop default theme drawing */
+}
+
+static void UpdateSortBar()
+{
+    if (!lblFileCount || !pbDiskUsage || !lblDiskUsage) return;
+
+    /* File/directory counts from the last listing */
+    char count_buf[64];
+    snprintf(count_buf, sizeof(count_buf), "%d 个目录  %d 个文件",
+             fs->GetDirCount(), fs->GetFileCount());
+    gtk_label_set_text(GTK_LABEL(lblFileCount), count_buf);
+
+    /* Disk usage via statvfs on the current directory */
+    struct statvfs vfs;
+    char cwd[2048];
+    if (getcwd(cwd, sizeof(cwd)) && statvfs(cwd, &vfs) == 0)
+    {
+        unsigned long long total = (unsigned long long)vfs.f_blocks * vfs.f_frsize;
+        unsigned long long avail = (unsigned long long)vfs.f_bavail * vfs.f_frsize;
+        unsigned long long used  = total > avail ? total - avail : 0;
+        double fraction = (total > 0) ? (double)used / total : 0.0;
+        if (fraction > 1.0) fraction = 1.0;
+        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(pbDiskUsage), fraction);
+        string text = format_size_auto((off_t)used) + "/" + format_size_auto((off_t)total);
+        gtk_label_set_text(GTK_LABEL(lblDiskUsage), text.c_str());
+    }
+}
+
+void CycleSortField(GtkWidget *widget, gpointer /*data*/)
+{
+    SortField next;
+    switch (fs->GetSortField()) {
+        case SORT_NAME:  next = SORT_SIZE;  break;
+        case SORT_SIZE:  next = SORT_TYPE;  break;
+        case SORT_TYPE:  next = SORT_MTIME; break;
+        default:         next = SORT_NAME;  break;
+    }
+    const char *labels[] = {"名称", "大小", "类型", "修改时间"};
+    gtk_button_set_label(GTK_BUTTON(widget), labels[next]);
+    fs->SetSort(next, fs->GetSortDir()); /* triggers UpdateList → on_list_updated */
+}
+
+void ToggleSortDir(GtkWidget *widget, gpointer /*data*/)
+{
+    SortDir nd = (fs->GetSortDir() == SORT_ASC) ? SORT_DESC : SORT_ASC;
+    gtk_button_set_label(GTK_BUTTON(widget), nd == SORT_ASC ? "正序" : "逆序");
+    fs->SetSort(fs->GetSortField(), nd);
+}
+
+/* -------------------------------------------------------------------- */
 
 void DirUp(GtkWidget *widget, gpointer data)
 {
@@ -974,6 +1055,48 @@ int main (int argc, char **argv)
     fs->Assign(lstFiles, hboxBreadcrumb, G_CALLBACK(BreadcrumbClick));
     hboxCopyBar = win->GetWidget("hboxCopyBar");
 
+    /* Sort bar widgets */
+    lblFileCount = win->GetWidget("lblFileCount");
+    pbDiskUsage  = win->GetWidget("pbDiskUsage");
+    lblDiskUsage = win->GetWidget("lblDiskUsage");
+    /* Lock the disk-usage VBox to a fixed width (~15 chars at Sans 9).
+       This prevents the label text length from widening the progress bar. */
+    gtk_widget_set_size_request(win->GetWidget("vboxDiskUsage"), 240, -1);
+    win->OnClick("btnSortField", CycleSortField);
+    win->OnClick("btnSortDir",   ToggleSortDir);
+
+    /* Sort bar appearance: small font, compact buttons, custom progress bar */
+    {
+        PangoFontDescription *sf = pango_font_description_from_string("Sans 9");
+
+        /* Plain labels in the sort bar */
+        gtk_widget_modify_font(win->GetWidget("lblSortPrefix"), sf);
+        gtk_widget_modify_font(win->GetWidget("lblSortMiddle"), sf);
+        gtk_widget_modify_font(lblFileCount,  sf);
+        gtk_widget_modify_font(lblDiskUsage,  sf);
+
+        /* Internal GtkLabel of each sort button (direct child for label-only buttons) */
+        GtkWidget *btnSortField = win->GetWidget("btnSortField");
+        GtkWidget *btnSortDir   = win->GetWidget("btnSortDir");
+        GtkWidget *lbl;
+        lbl = gtk_bin_get_child(GTK_BIN(btnSortField));
+        if (lbl && GTK_IS_LABEL(lbl)) gtk_widget_modify_font(lbl, sf);
+        lbl = gtk_bin_get_child(GTK_BIN(btnSortDir));
+        if (lbl && GTK_IS_LABEL(lbl)) gtk_widget_modify_font(lbl, sf);
+
+        pango_font_description_free(sf);
+
+        /* Compact button height */
+        gtk_widget_set_size_request(btnSortField, -1, 28);
+        gtk_widget_set_size_request(btnSortDir,   -1, 28);
+    }
+
+    /* Progress bar: custom draw via expose-event (theme-independent) */
+    g_signal_connect(pbDiskUsage, "expose-event", G_CALLBACK(pb_draw_cb), NULL);
+
+    /* UpdateSortBar is called automatically after every UpdateList() */
+    fs->on_list_updated = UpdateSortBar;
+
     // Wire custom vscrollbar to the scrolled window's vadjustment
     GtkWidget *scrolledWindow = win->GetWidget("scrolledwindow1");
     GtkWidget *vscrollbar = win->GetWidget("vscrollbar1");
@@ -1033,7 +1156,8 @@ int main (int argc, char **argv)
 
     UpdateButtons();
     win->Show();
-    gtk_widget_hide(hboxCopyBar); 
+    gtk_widget_hide(hboxCopyBar);
+    UpdateSortBar(); /* populate sort bar on first display */
 
     gtk_main();
 

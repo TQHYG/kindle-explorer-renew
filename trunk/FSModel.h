@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include <vector>
 #include <utility>
 #include <unistd.h>
@@ -60,6 +61,11 @@ public:
         tree = view;
         breadcrumb_box = breadcrumb;
         nav_callback = nav_cb;
+        sort_field = SORT_NAME;
+        sort_dir   = SORT_ASC;
+        last_dir_count  = 0;
+        last_file_count = 0;
+        on_list_updated = NULL;
         GError *error = NULL;
         file = gdk_pixbuf_new_from_file(GetAppFile("res/file.png").c_str(), &error);
         if (error)
@@ -124,6 +130,8 @@ public:
         g_object_unref(model);
 
         UpdateBreadcrumb();
+
+        if (on_list_updated) on_list_updated();
     }
 
     bool IsItemSelected()
@@ -151,6 +159,23 @@ public:
         }
         return result;
     }
+
+    /* Sort state */
+    void SetSort(SortField sf, SortDir sd)
+    {
+        sort_field = sf;
+        sort_dir   = sd;
+        UpdateList();
+    }
+    SortField GetSortField() const { return sort_field; }
+    SortDir   GetSortDir()   const { return sort_dir;   }
+
+    /* File/directory counts from the last UpdateList() */
+    int GetDirCount()  const { return last_dir_count;  }
+    int GetFileCount() const { return last_file_count; }
+
+    /* Optional callback invoked at the end of every UpdateList() */
+    void (*on_list_updated)();
 
     void SetMultiSelectMode(bool enabled)
     {
@@ -311,7 +336,14 @@ private:
                                    G_TYPE_BOOLEAN);  /* COL_IS_DIR */
         gtk_tree_sortable_set_default_sort_func (GTK_TREE_SORTABLE(store), NULL, NULL, NULL);
         gtk_tree_sortable_set_sort_column_id (GTK_TREE_SORTABLE(store), GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID, GTK_SORT_ASCENDING);
-        vector<FileItem> files = GetFiles();
+        vector<FileItem> files = GetFiles(sort_field, sort_dir);
+        last_dir_count  = 0;
+        last_file_count = 0;
+        for (size_t i = 0; i < files.size(); i++)
+        {
+            if (files[i].dir) last_dir_count++;
+            else              last_file_count++;
+        }
         for(vector<FileItem>::iterator it = files.begin(); it != files.end(); ++it)
         {
             GdkPixbuf* icon;
@@ -347,21 +379,32 @@ private:
                 info = format_size_auto(it->size);
             }
 
+            /* Format last-modified time as "YYYY年M月D日 HH:MM" */
+            char timebuf[64];
+            timebuf[0] = '\0';
+            if (it->mtime != 0)
+            {
+                struct tm *tm_info = localtime(&it->mtime);
+                if (tm_info)
+                    strftime(timebuf, sizeof(timebuf), "%Y\xe5\xb9\xb4%-m\xe6\x9c\x88%-d\xe6\x97\xa5 %H:%M", tm_info);
+            }
+
             /* Append symlink target arrow for all symlinks */
             string link_suffix;
             if (it->is_symlink && !it->symlink_target.empty())
             {
                 gchar *esc_tgt = g_markup_escape_text(it->symlink_target.c_str(), -1);
-                link_suffix = string("  ->") + esc_tgt;
+                link_suffix = string("    ->") + esc_tgt;
                 g_free(esc_tgt);
             }
 
             /* ---- escape filename for Pango markup ---- */
             gchar *esc = g_markup_escape_text(it->name.c_str(), -1);
             const char *attrs_color = (it->is_symlink && it->symlink_broken) ? "#cc3333" : "#777777";
+            string mtime_prefix = timebuf[0] ? string(timebuf) + "     " : "";
             string markup = string(esc)
                 + "\n<span size='small' foreground='" + attrs_color + "'>"
-                + perms + "  " + info + link_suffix + "</span>";
+                + mtime_prefix + perms + "     " + info + link_suffix + "</span>";
             g_free(esc);
 
             gtk_list_store_append(store, &iter);
@@ -388,4 +431,8 @@ private:
     GdkPixbuf* script_icon;
     GdkPixbuf* binary_icon;
     GdkPixbuf* ebook_icon;
+    SortField sort_field;
+    SortDir   sort_dir;
+    int last_dir_count;
+    int last_file_count;
 };
