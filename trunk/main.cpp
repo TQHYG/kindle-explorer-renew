@@ -1059,15 +1059,15 @@ int main (int argc, char **argv)
     lblFileCount = win->GetWidget("lblFileCount");
     pbDiskUsage  = win->GetWidget("pbDiskUsage");
     lblDiskUsage = win->GetWidget("lblDiskUsage");
-    /* Lock the disk-usage VBox to a fixed width (~15 chars at Sans 9).
+    /* Lock the disk-usage VBox to a fixed width (~15 chars at Sans 8).
        This prevents the label text length from widening the progress bar. */
-    gtk_widget_set_size_request(win->GetWidget("vboxDiskUsage"), 240, -1);
+    gtk_widget_set_size_request(win->GetWidget("vboxDiskUsage"), 300, -1);
     win->OnClick("btnSortField", CycleSortField);
     win->OnClick("btnSortDir",   ToggleSortDir);
 
     /* Sort bar appearance: small font, compact buttons, custom progress bar */
     {
-        PangoFontDescription *sf = pango_font_description_from_string("Sans 9");
+        PangoFontDescription *sf = pango_font_description_from_string("Sans 8");
 
         /* Plain labels in the sort bar */
         gtk_widget_modify_font(win->GetWidget("lblSortPrefix"), sf);
