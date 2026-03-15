@@ -19,6 +19,39 @@ enum
     NUM_COLS
 };
 
+/* Remove foreground='gray' from markup when the row is selected so the
+   attributes line inverts correctly along with the filename. */
+static void text_cell_data_func(GtkTreeViewColumn *col, GtkCellRenderer *renderer,
+                                 GtkTreeModel *model, GtkTreeIter *iter, gpointer data)
+{
+    GtkTreeView      *tv  = GTK_TREE_VIEW(data);
+    GtkTreeSelection *sel = gtk_tree_view_get_selection(tv);
+    gboolean selected     = gtk_tree_selection_iter_is_selected(sel, iter);
+
+    gchar *markup = NULL;
+    gtk_tree_model_get(model, iter, COL_MARKUP, &markup, -1);
+
+    if (selected && markup)
+    {
+        /* Strip foreground='...' attribute from spans so selection colour takes over */
+        std::string s(markup);
+        std::size_t pos;
+        const std::string attr_start = " foreground='";
+        while ((pos = s.find(attr_start)) != std::string::npos)
+        {
+            std::size_t end = s.find('\'', pos + attr_start.size());
+            if (end == std::string::npos) break;
+            s.erase(pos, end - pos + 1);
+        }
+        g_object_set(renderer, "markup", s.c_str(), NULL);
+    }
+    else
+    {
+        g_object_set(renderer, "markup", markup ? markup : "", NULL);
+    }
+    if (markup) g_free(markup);
+}
+
 class FilesModel
 {
 public:
@@ -42,6 +75,10 @@ public:
             g_error_free(error);
             error = NULL;
         }
+        image_icon  = gdk_pixbuf_new_from_file(GetAppFile("res/image.png").c_str(),  NULL);
+        script_icon = gdk_pixbuf_new_from_file(GetAppFile("res/script.png").c_str(), NULL);
+        binary_icon = gdk_pixbuf_new_from_file(GetAppFile("res/binary.png").c_str(), NULL);
+        ebook_icon  = gdk_pixbuf_new_from_file(GetAppFile("res/ebook.png").c_str(),  NULL);
         CreateColumns();
     }
 
@@ -59,7 +96,9 @@ public:
         renderer = gtk_cell_renderer_text_new();
         g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
         gtk_tree_view_column_pack_start(col, renderer, TRUE);
-        gtk_tree_view_column_set_attributes(col, renderer, "markup", COL_MARKUP, NULL);
+        /* Use cell-data-func so selected rows drop the gray foreground */
+        gtk_tree_view_column_set_cell_data_func(col, renderer,
+                                                text_cell_data_func, tree, NULL);
 
         gtk_tree_view_column_set_expand(col, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col);
@@ -110,6 +149,58 @@ public:
             result.dir = dir;
             g_free(name);
         }
+        return result;
+    }
+
+    void SetMultiSelectMode(bool enabled)
+    {
+        GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+        gtk_tree_selection_set_mode(sel,
+            enabled ? GTK_SELECTION_MULTIPLE : GTK_SELECTION_SINGLE);
+        if (!enabled)
+        {
+            gtk_tree_selection_unselect_all(sel);
+            /* Detach and reattach the existing model to force GTK to fully
+               reset its internal cursor/focus state.  Without this, GTK2
+               occasionally leaves the tree unable to accept new selections
+               after transitioning from MULTIPLE back to SINGLE mode. */
+            GtkTreeModel *mdl = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+            if (mdl)
+            {
+                g_object_ref(mdl);
+                gtk_tree_view_set_model(GTK_TREE_VIEW(tree), NULL);
+                gtk_tree_view_set_model(GTK_TREE_VIEW(tree), mdl);
+                g_object_unref(mdl);
+            }
+        }
+    }
+
+    int GetSelectedCount()
+    {
+        GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+        return gtk_tree_selection_count_selected_rows(sel);
+    }
+
+    vector<FileItem> GetSelectedItems()
+    {
+        vector<FileItem> result;
+        GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+        GtkTreeModel *mdl = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+        GList *rows = gtk_tree_selection_get_selected_rows(sel, &mdl);
+        for (GList *l = rows; l; l = l->next)
+        {
+            GtkTreeIter iter;
+            gtk_tree_model_get_iter(mdl, &iter, (GtkTreePath*)l->data);
+            char *name; gboolean dir;
+            gtk_tree_model_get(mdl, &iter, COL_NAME, &name, COL_IS_DIR, &dir, -1);
+            FileItem fi;
+            fi.name = name;
+            fi.dir  = dir;
+            g_free(name);
+            result.push_back(fi);
+        }
+        g_list_foreach(rows, (GFunc)gtk_tree_path_free, NULL);
+        g_list_free(rows);
         return result;
     }
 
@@ -223,7 +314,15 @@ private:
         vector<FileItem> files = GetFiles();
         for(vector<FileItem>::iterator it = files.begin(); it != files.end(); ++it)
         {
-            GdkPixbuf* icon = it->dir ? folder : file;
+            GdkPixbuf* icon;
+            switch (it->file_type) {
+                case FT_DIR:    icon = folder; break;
+                case FT_IMAGE:  icon = image_icon  ? image_icon  : file; break;
+                case FT_SCRIPT: icon = script_icon ? script_icon : file; break;
+                case FT_BINARY: icon = binary_icon ? binary_icon : file; break;
+                case FT_EBOOK:  icon = ebook_icon  ? ebook_icon  : file; break;
+                default:        icon = file; break;
+            }
 
             /* ---- build attrs line ---- */
             string perms = format_perms(it->mode);
@@ -285,4 +384,8 @@ private:
     GtkTreeModel *model;
     GdkPixbuf* file;
     GdkPixbuf* folder;
+    GdkPixbuf* image_icon;
+    GdkPixbuf* script_icon;
+    GdkPixbuf* binary_icon;
+    GdkPixbuf* ebook_icon;
 };

@@ -14,4 +14,4 @@ include_dirs = include_directories(
   './KindleLib/'
 )
 
-executable('kindle-explorer', sources, include_directories: include_dirs, dependencies: [gtk_dep], cpp_args: '-static-libstdc++', link_args: '-static-libstdc++')
+executable('kindle-explorer', sources, include_directories: include_dirs, dependencies: [gtk_dep], cpp_args: '-static-libstdc++', link_args: ['-static-libstdc++', '-lpthread'])

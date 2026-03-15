@@ -11,6 +11,8 @@
 
 using namespace std;
 
+enum FileType { FT_DIR, FT_IMAGE, FT_SCRIPT, FT_BINARY, FT_EBOOK, FT_TEXT, FT_OTHER };
+
 typedef struct
 {
     string name;
@@ -21,6 +23,7 @@ typedef struct
     off_t size;             /* file size; for symlinks: target size; broken: 0 */
     int dir_count;          /* for directories: item count (-1 if unavailable) */
     string symlink_target;  /* readlink() result; empty for non-symlinks */
+    FileType file_type;     /* detected file type */
 } FileItem;
 
 #include <stdio.h>  /* defines FILENAME_MAX */
@@ -257,6 +260,51 @@ static int count_dir_items(const char* dirpath)
     return count;
 }
 
+bool CheckExtension(string list, string fileName)
+{
+    list += ";";
+    string ext = fileName.substr(fileName.find_last_of(".") + 1);
+    return list.find(ext + ";") != std::string::npos;
+}
+
+static FileType detect_file_type(const FileItem& fi)
+{
+    if (fi.dir) return FT_DIR;
+    /* Only open files for magic inspection if they are regular files.
+       Broken symlinks, devices, pipes, and sockets have non-regular mode
+       bits from lstat; opening them could block or fail unpredictably. */
+    if (!S_ISREG(fi.mode)) return FT_OTHER;
+    const string& name = fi.name;
+    if (CheckExtension("bmp;png;gif;ico;jpg;jpeg;wmf;tga", name)) return FT_IMAGE;
+    if (CheckExtension("epub;mobi;azw;azw3;prc;pdf;kfx;", name))       return FT_EBOOK;
+    /* ELF binary detection */
+    {
+        FILE* f = fopen(name.c_str(), "rb");
+        if (f) {
+            unsigned char hdr[4] = {0, 0, 0, 0};
+            fread(hdr, 1, 4, f);
+            fclose(f);
+            if (hdr[0] == 0x7f && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F')
+                return FT_BINARY;
+        }
+    }
+    /* Script: exec bit set AND (shebang OR script extension) */
+    bool has_exec = (fi.mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
+    bool script_ext = CheckExtension("sh;bash;py;pl;rb;lua", name);
+    bool has_shebang = false;
+    {
+        FILE* f = fopen(name.c_str(), "r");
+        if (f) {
+            char buf[3] = {0, 0, 0};
+            fread(buf, 1, 2, f);
+            fclose(f);
+            has_shebang = (buf[0] == '#' && buf[1] == '!');
+        }
+    }
+    if (has_exec && (has_shebang || script_ext)) return FT_SCRIPT;
+    return FT_TEXT;
+}
+
 static vector<FileItem> GetFiles()
 {
     vector<FileItem> result;
@@ -321,7 +369,10 @@ static vector<FileItem> GetFiles()
         }
 
 		if (fit.name != "." && fit.name != "..")
+        {
+            fit.file_type = detect_file_type(fit);
             result.push_back(fit);
+        }
 
 		tinydir_next(&dir);
 	}
@@ -473,13 +524,6 @@ std::string get_file_contents(const char *filename)
     return(contents);
   }
   throw(errno);
-}
-
-bool CheckExtension(string list, string fileName)
-{
-    list += ";";
-    string ext = fileName.substr(fileName.find_last_of(".") + 1);
-    return list.find(ext + ";") != std::string::npos;
 }
 
 #endif // END

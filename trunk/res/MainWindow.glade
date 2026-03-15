@@ -28,9 +28,6 @@
                 <property name="position">0</property>
               </packing>
             </child>
-            <child>
-              <placeholder/>
-            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -42,7 +39,8 @@
           <object class="GtkHBox" id="hbox1">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="border_width">10</property>
+            <property name="border_width">5</property>
+            <!-- Left group -->
             <child>
               <object class="GtkButton" id="btnDirUp">
                 <property name="label" translatable="yes">Level up</property>
@@ -59,19 +57,8 @@
               </packing>
             </child>
             <child>
-              <object class="GtkVSeparator" id="vseparator2">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="btnView">
-                <property name="label" translatable="yes">View</property>
+              <object class="GtkButton" id="btnMultiSelect">
+                <property name="label" translatable="yes">Sel</property>
                 <property name="width_request">64</property>
                 <property name="height_request">64</property>
                 <property name="visible">True</property>
@@ -81,12 +68,26 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <!-- Spacer: pushes center group to middle -->
+            <child>
+              <object class="GtkLabel" id="lblSpacerLeft">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label"></property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
                 <property name="position">2</property>
               </packing>
             </child>
+            <!-- Center group -->
             <child>
-              <object class="GtkButton" id="btnEdit">
-                <property name="label" translatable="yes">Edit</property>
+              <object class="GtkButton" id="btnAdd">
+                <property name="label" translatable="yes">Add</property>
                 <property name="width_request">64</property>
                 <property name="height_request">64</property>
                 <property name="visible">True</property>
@@ -97,62 +98,6 @@
                 <property name="expand">False</property>
                 <property name="fill">False</property>
                 <property name="position">3</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="btnExecute">
-                <property name="label" translatable="yes">Execute</property>
-                <property name="width_request">64</property>
-                <property name="height_request">64</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">False</property>
-                <property name="position">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="btnTerminal">
-                <property name="label" translatable="yes">Term</property>
-                <property name="width_request">64</property>
-                <property name="height_request">64</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">False</property>
-                <property name="position">5</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkVSeparator" id="vseparator3">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">6</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="btnRename">
-                <property name="label" translatable="yes">Ren</property>
-                <property name="width_request">64</property>
-                <property name="height_request">64</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">False</property>
-                <property name="position">7</property>
               </packing>
             </child>
             <child>
@@ -167,12 +112,12 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
-                <property name="position">8</property>
+                <property name="position">4</property>
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="btnPaste">
-                <property name="label" translatable="yes">Paste</property>
+              <object class="GtkButton" id="btnRename">
+                <property name="label" translatable="yes">Ren</property>
                 <property name="width_request">64</property>
                 <property name="height_request">64</property>
                 <property name="visible">True</property>
@@ -182,7 +127,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
-                <property name="position">9</property>
+                <property name="position">5</property>
               </packing>
             </child>
             <child>
@@ -197,23 +142,12 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
-                <property name="position">10</property>
+                <property name="position">6</property>
               </packing>
             </child>
             <child>
-              <object class="GtkVSeparator" id="vseparator1">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">11</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="btnAbout">
-                <property name="label" translatable="yes">?</property>
+              <object class="GtkButton" id="btnProperties">
+                <property name="label" translatable="yes">Info</property>
                 <property name="width_request">64</property>
                 <property name="height_request">64</property>
                 <property name="visible">True</property>
@@ -223,9 +157,38 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
-                <property name="position">12</property>
+                <property name="position">7</property>
               </packing>
             </child>
+            <child>
+              <object class="GtkButton" id="btnTerminal">
+                <property name="label" translatable="yes">Term</property>
+                <property name="width_request">64</property>
+                <property name="height_request">64</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">8</property>
+              </packing>
+            </child>
+            <!-- Spacer: pushes right group to right -->
+            <child>
+              <object class="GtkLabel" id="lblSpacerRight">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label"></property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">9</property>
+              </packing>
+            </child>
+            <!-- Right group -->
             <child>
               <object class="GtkButton" id="btnClose">
                 <property name="label" translatable="yes">Close</property>
@@ -238,50 +201,8 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
-                <property name="position">13</property>
+                <property name="position">10</property>
               </packing>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
             </child>
           </object>
           <packing>
@@ -299,6 +220,63 @@
             <property name="expand">False</property>
             <property name="fill">True</property>
             <property name="position">2</property>
+          </packing>
+        </child>
+        <!-- Copy status bar (initially hidden) -->
+        <child>
+          <object class="GtkHBox" id="hboxCopyBar">
+            <property name="visible">False</property>
+            <property name="can_focus">False</property>
+            <property name="border_width">5</property>
+            <property name="spacing">5</property>
+            <child>
+              <object class="GtkLabel" id="lblCopyStatus">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label">已复制 0 个项目</property>
+                <property name="xalign">0</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="btnCancelCopy">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="width_request">64</property>
+                <property name="height_request">64</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="btnPaste">
+                <property name="label" translatable="yes">Paste</property>
+                <property name="width_request">64</property>
+                <property name="height_request">64</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">4</property>
           </packing>
         </child>
         <child>
