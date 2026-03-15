@@ -21,6 +21,14 @@ Timer timer; string lastSel;
 string copied;
 const char* imageFormats = "bmp;png;gif;ico;jpg;jpeg;wmf;tga";
 
+/* Image viewer zoom state — valid while the image viewer window is open */
+struct {
+    GdkPixbuf  *original;
+    GtkWidget  *image_widget;
+    double      zoom;
+    double      fit_zoom;
+} img_state = {NULL, NULL, 1.0, 1.0};
+
 
 void UpdateButtons()
 {
@@ -159,6 +167,52 @@ void PasteFile(GtkWidget *widget, gpointer data)
     delete wait;
 }
 
+/* ---- image viewer helpers ----------------------------------------- */
+
+static void UpdateImageDisplay()
+{
+    if (!img_state.original || !img_state.image_widget) return;
+    int w = (int)(gdk_pixbuf_get_width(img_state.original)  * img_state.zoom);
+    int h = (int)(gdk_pixbuf_get_height(img_state.original) * img_state.zoom);
+    if (w < 1) w = 1;
+    if (h < 1) h = 1;
+    GdkPixbuf *scaled = gdk_pixbuf_scale_simple(
+        img_state.original, w, h, GDK_INTERP_BILINEAR);
+    gtk_image_set_from_pixbuf(GTK_IMAGE(img_state.image_widget), scaled);
+    g_object_unref(scaled);
+}
+
+void ImageZoomIn(GtkWidget *widget, gpointer data)
+{
+    img_state.zoom *= 1.5;
+    UpdateImageDisplay();
+}
+
+void ImageZoomOut(GtkWidget *widget, gpointer data)
+{
+    img_state.zoom /= 1.5;
+    if (img_state.zoom < 0.05) img_state.zoom = 0.05;
+    UpdateImageDisplay();
+}
+
+void ImageZoomFit(GtkWidget *widget, gpointer data)
+{
+    img_state.zoom = img_state.fit_zoom;
+    UpdateImageDisplay();
+}
+
+void OnImageViewerDestroy(GtkWidget *widget, gpointer data)
+{
+    if (img_state.original)
+    {
+        g_object_unref(img_state.original);
+        img_state.original = NULL;
+    }
+    img_state.image_widget = NULL;
+}
+
+/* --------------------------------------------------------------------- */
+
 void ViewFile(GtkWidget *widget, gpointer data)
 {
     if (!fs->IsItemSelected())
@@ -188,8 +242,45 @@ void ViewFile(GtkWidget *widget, gpointer data)
 
     if (isImage)
     {
-        GtkWidget *image = gtk_image_new_from_file(sel.name.c_str());
-        gtk_container_add(GTK_CONTAINER(viewer->GetWidget("viewportMain")), image);
+        GError *load_err = NULL;
+        GdkPixbuf *orig = gdk_pixbuf_new_from_file(sel.name.c_str(), &load_err);
+        if (orig)
+        {
+            /* Compute fit-to-window zoom (never upscale small images) */
+            int orig_w = gdk_pixbuf_get_width(orig);
+            int orig_h = gdk_pixbuf_get_height(orig);
+            int screen_w = gdk_screen_get_width(gdk_screen_get_default());
+            int screen_h = gdk_screen_get_height(gdk_screen_get_default());
+            double scale_w = (double)(screen_w - 30)  / orig_w;
+            double scale_h = (double)(screen_h - 130) / orig_h;
+            double fit_z = (scale_w < scale_h) ? scale_w : scale_h;
+            if (fit_z > 1.0) fit_z = 1.0;
+
+            GtkWidget *img = gtk_image_new();
+            gtk_widget_show(img);
+            gtk_container_add(GTK_CONTAINER(viewer->GetWidget("viewportMain")), img);
+
+            img_state.original     = orig;
+            img_state.image_widget = img;
+            img_state.zoom         = fit_z;
+            img_state.fit_zoom     = fit_z;
+            UpdateImageDisplay();
+
+            viewer->OnClick("btnZoomIn",  ImageZoomIn);
+            viewer->OnClick("btnZoomOut", ImageZoomOut);
+            viewer->OnClick("btnZoomFit", ImageZoomFit);
+
+            /* Free pixbuf when viewer window closes */
+            g_signal_connect(viewer->GetWidget("wndViewImage"), "destroy",
+                             G_CALLBACK(OnImageViewerDestroy), NULL);
+        }
+        else
+        {
+            /* Fallback: display at native size if pixbuf load fails */
+            GtkWidget *image = gtk_image_new_from_file(sel.name.c_str());
+            gtk_container_add(GTK_CONTAINER(viewer->GetWidget("viewportMain")), image);
+        }
+        if (load_err) g_error_free(load_err);
     }
     else
     {
